@@ -9,6 +9,9 @@ export interface ThemeCue {
   appliedAt?: number;
   director?: DirectorReport;
   head?: import('./head.js').HeadReport;
+  /** The key this song actually opened in, once it began. */
+  root?: number;
+  mode?: string;
 }
 
 // A queued song never cuts in. The band is asked to bring the current song to a natural close;

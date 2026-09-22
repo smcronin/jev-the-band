@@ -4,6 +4,7 @@ import {
   defaultDecision,
   defaultLighting,
   hash,
+  random,
   lightRecipes,
   musicians,
   type Decision,
@@ -22,6 +23,8 @@ import { composePhrase, maxAttacks } from './composer.js';
 import { directJam } from './director.js';
 import { composeHead } from './head.js';
 import type { SonicConcept } from '../shared/concept.js';
+import type { RecentKey } from '../shared/keys.js';
+import { chooseTonic, offerModes, tonicNames } from '../shared/keys.js';
 import { headBars, inferPulse, readHead } from '../shared/head.js';
 import { defaultEngineerMix, type ChannelLevels } from '../shared/engineer.js';
 import { engineerRequest, readEngineer } from './engineer.js';
@@ -79,10 +82,20 @@ export class Room extends EventEmitter {
     this.votes.clear();
     this.lastKeyChange = index;
     const concept = this.state.director?.concept;
-    if (this.adoptHead(cue.head)) return;
+    if (this.adoptHead(cue.head)) {
+      cue.root = this.root;
+      cue.mode = this.modeName;
+      return;
+    }
     this.state.requests++;
     const t = await callJev(
-      bootstrapRequest(cue.prompt, this.model, concept, this.options.recentOpeners),
+      bootstrapRequest(
+        cue.prompt,
+        this.model,
+        concept,
+        this.options.recentOpeners,
+        this.recentKeys(),
+      ),
       'host',
       index,
       this.apiKey,
@@ -109,6 +122,8 @@ export class Room extends EventEmitter {
     this.modeName = this.scale;
     this.state.initialRoot = this.root;
     this.state.initialMode = this.scale;
+    cue.root = this.root;
+    cue.mode = this.modeName;
   }
   private windDown?: { cueId: string; startFrame: number };
   private finishing = false;
@@ -116,23 +131,42 @@ export class Room extends EventEmitter {
   private head?: Record<Musician, Note[][]>;
   private requestHead(prompt: string, concept: SonicConcept | undefined) {
     const key = this.options.directorApiKey ?? (this.provider === 'typesafe' ? '' : this.apiKey);
-    return composeHead(prompt, concept, this.options.directorModel!, key, this.abort.signal);
+    return composeHead(
+      prompt,
+      concept,
+      this.options.directorModel!,
+      key,
+      this.abort.signal,
+      this.recentKeys(),
+      // Tonic and a short mode menu are the room's choice, seeded per song, so a night visits
+      // many keys; Luna picks the mode that fits the prompt.
+      chooseTonic(this.recentKeys(), random(this.state.seed + hash(prompt))()),
+      offerModes(this.recentKeys(), random(this.state.seed + hash(prompt) + 7)),
+    );
+  }
+  /** Recent jams' keys plus this room's earlier songs, so a queued song also moves on. */
+  private recentKeys(): RecentKey[] {
+    const own = (this.state.setlist ?? [])
+      .filter((c) => c.appliedAt !== undefined)
+      .map((c) => ({ root: c.root ?? -1, mode: c.mode ?? '', title: c.prompt }))
+      .filter((k) => k.root >= 0);
+    return [...(this.options.recentKeys ?? []), ...own];
   }
   /** Adopt a delivered head for the song that is starting. Returns false when there is none. */
   private adoptHead(report: import('../shared/head.js').HeadReport | undefined): boolean {
     this.head = undefined;
     this.state.head = undefined;
     if (report?.status !== 'ready' || !report.head) return false;
-    this.head = readHead(report.head).parts;
+    this.head = readHead(report.head, report.tonic).parts;
     this.state.head = report;
     const concept = this.state.director?.concept;
     // The head declares its own key and tempo; the opener is whoever it brings in first.
     this.state.baseBpm = report.head.bpm;
-    this.root = report.head.root;
-    this.scale = report.head.mode;
+    this.root = report.tonic ?? tonicNames.indexOf(report.head.tonic);
+    this.scale = baseMode(report.head.mode);
     this.state.opener =
       musicians.find((r) => this.head![r][0].length) ?? concept?.openingInstrument ?? 'bass';
-    this.modeName = this.scale;
+    this.modeName = report.head.mode;
     this.state.initialRoot = this.root;
     this.state.initialMode = this.scale;
     return true;
@@ -259,6 +293,7 @@ export class Room extends EventEmitter {
         this.options.directorApiKey ?? (this.provider === 'typesafe' ? '' : this.apiKey),
         this.options.recentOpeners,
         this.abort.signal,
+        this.recentKeys(),
       ).then(async (report) => {
         cue.director = report;
         if (this.state.themeId === cue.id) this.state.director = report;
@@ -305,6 +340,8 @@ export class Room extends EventEmitter {
       directorModel?: string;
       directorApiKey?: string;
       recentOpeners?: Musician[];
+      /** Keys of recent jams, told to the arranger and rested from the opening menu. */
+      recentKeys?: RecentKey[];
       /** The arranger writes a twelve-bar head before each song (needs the director). Default on. */
       headEnabled?: boolean;
       fallback?: { provider: JevProvider; apiKey: string; model: string };
@@ -371,6 +408,7 @@ export class Room extends EventEmitter {
             this.options.directorApiKey ?? (this.provider === 'typesafe' ? '' : this.apiKey),
             this.options.recentOpeners,
             this.abort.signal,
+            this.recentKeys(),
           );
           this.publish();
         }
@@ -394,6 +432,7 @@ export class Room extends EventEmitter {
               this.model,
               this.state.director?.concept,
               this.options.recentOpeners,
+              this.recentKeys(),
             ),
             'host',
             -1,
@@ -433,6 +472,8 @@ export class Room extends EventEmitter {
           head: this.state.head,
         },
       ];
+      this.state.setlist[0].root = this.root;
+      this.state.setlist[0].mode = this.modeName;
       this.hardStop = setTimeout(() => this.stop(), this.state.endsAt - Date.now());
       await this.prepare(0, this.state.startedAt);
     } catch (e) {

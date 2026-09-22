@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { musicians, patches, type Musician, type Note } from './music.js';
+import { headModes, tonicNames } from './keys.js';
 import { validateNotes } from './score.js';
 
 // The HEAD: a written twelve-bar opening for all four players, composed by the Luna arranger
@@ -20,8 +21,8 @@ export const headSchema = z.object({
   title: z.string().min(2).max(80),
   idea: z.string().min(8).max(300),
   bpm: z.number().int().min(70).max(125),
-  root: z.number().int().min(0).max(11),
-  mode: z.enum(['major', 'minor', 'dorian', 'mixolydian']),
+  tonic: z.enum(tonicNames),
+  mode: z.enum(headModes),
   keys: z.object({ left: z.enum(patches), right: z.enum(patches) }),
   guitar: z.array(z.string().max(240)).length(headBars),
   bass: z.array(z.string().max(240)).length(headBars),
@@ -35,6 +36,12 @@ export interface HeadReport {
   requestedAt: number;
   request?: unknown;
   head?: Head;
+  /** The tonic the room asked for, chosen off-model for variety; the head is transposed onto it. */
+  tonic?: number;
+  /** The three modes the room offered; Luna picked the one that fit. */
+  modesOffered?: string[];
+  /** Set when Luna wrote in another key and the head was moved, e.g. "D → F#". */
+  transposed?: string;
   /** Per-player events that could not be read or broke an instrument limit. */
   dropped?: Partial<Record<Musician, number>>;
   providerId?: string;
@@ -74,16 +81,32 @@ const pitchedToken =
   /^(?:([LR]):)?([A-G][#b]?-?\d(?:\+[A-G][#b]?-?\d)*)@(\d+(?:\.\d+)?)\/(\d+(?:\.\d+)?)(?:!(p|mp|mf|f))?$/;
 const drumToken = /^(K|S|X|H|O|P|R|B|C|SP|T1|T2|T3)@(\d+(?:\.\d+)?)(?:!(p|mp|mf|f))?$/;
 
+/**
+ * The arranger sometimes writes several bars in one string separated by '|'. Those pieces are
+ * spread forward into the following bars while they are empty; anything beyond is dropped.
+ */
+export function spreadBars(bars: string[]): string[] {
+  const out = bars.map((b) => b.trim());
+  for (let i = 0; i < out.length; i++) {
+    if (!out[i].includes('|')) continue;
+    const pieces = out[i].split('|').map((p) => p.trim());
+    out[i] = pieces[0];
+    for (let j = 1, k = i + 1; j < pieces.length && k < out.length; k++)
+      if (!out[k]) out[k] = pieces[j++];
+  }
+  return out;
+}
 /** Read one player's twelve bars into six two-bar chunks of validated notes. */
 export function readHeadPart(
   role: Musician,
   bars: string[],
   handPatches: Head['keys'],
+  shift = 0,
 ): { chunks: Note[][]; dropped: number } {
   const chunks: Note[][] = Array.from({ length: headBars / 2 }, () => []);
   let dropped = 0;
   const [low, high] = ranges[role];
-  bars.forEach((bar, index) => {
+  spreadBars(bars).forEach((bar, index) => {
     const chunk = chunks[Math.floor(index / 2)];
     const offset = (index % 2) * 4;
     for (const token of bar.trim().split(/\s+/).filter(Boolean)) {
@@ -115,6 +138,7 @@ export function readHeadPart(
             dropped++;
             continue;
           }
+          midi += shift;
           // A note written outside the instrument's range is folded by octaves into it.
           while (midi < low) midi += 12;
           while (midi > high) midi -= 12;
@@ -146,12 +170,19 @@ export function readHeadPart(
   });
   return { chunks, dropped };
 }
-export function readHead(head: Head) {
+/** Semitones to move the written head onto the requested tonic, by the shorter way round. */
+export function headShift(head: Head, tonic: number | undefined): number {
+  if (tonic === undefined) return 0;
+  const written = tonicNames.indexOf(head.tonic);
+  return ((((tonic - written) % 12) + 18) % 12) - 6;
+}
+export function readHead(head: Head, tonic?: number) {
+  const shift = headShift(head, tonic);
   const parts = {} as Record<Musician, Note[][]>;
   const dropped: Partial<Record<Musician, number>> = {};
   for (const role of musicians) {
     const bars = role === 'keys' ? head.keyboard : head[role];
-    const read = readHeadPart(role, bars, head.keys);
+    const read = readHeadPart(role, bars, head.keys, role === 'drums' ? 0 : shift);
     parts[role] = read.chunks;
     if (read.dropped) dropped[role] = read.dropped;
   }

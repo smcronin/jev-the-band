@@ -52,8 +52,11 @@ export function ConceptCard({
       {current && <p className="chapter-direction">{current.harmonicDirection}</p>}
       {head?.head && (
         <p className="chapter-direction">
-          Head: <b>{head.head.title}</b> · {head.head.idea} · written by {head.model}; Jev takes
-          over at bar 13
+          Head: <b>{head.head.title}</b> · {head.head.idea} · written by {head.model} in{' '}
+          {head.head.tonic} {head.head.mode.replaceAll('_', ' ')}
+          {head.tonic !== undefined ? ' (tonic chosen by the room for variety' : ''}
+          {head.transposed ? `, moved ${head.transposed}` : ''}
+          {head.tonic !== undefined ? ')' : ''}; Jev takes over at bar 13
         </p>
       )}
       {head?.status === 'failed' && <p className="chapter-direction">{head.error}</p>}

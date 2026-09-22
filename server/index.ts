@@ -195,6 +195,8 @@ app.post('/api/room', paced, async (req, res) => {
   }
   if (room) recentOpeners.push(room.state.opener);
   if (recentOpeners.length > 4) recentOpeners.shift();
+  // Keys of the last few jams, so tonics and modes do not repeat night after night.
+  const recentKeys = await archive.recentKeys().catch(() => []);
   room = new Room(
     songPrompt(parsed.data),
     parsed.data.mode,
@@ -208,6 +210,7 @@ app.post('/api/room', paced, async (req, res) => {
       directorModel: provider.directorModel,
       directorApiKey: provider.directorKey,
       recentOpeners: [...recentOpeners],
+      recentKeys,
     },
   );
   const current = room;

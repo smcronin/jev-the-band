@@ -634,3 +634,13 @@ basically an extension of the system one / system two thinking. luna gives each 
 ```text
 can you add documentation on system one / system two thinking to the 'how does jev work' modal?
 ```
+
+## 2026-09-22 — Why is every jam C dorian?
+
+```text
+why do you think 9/10 jams are C Dorian? how would you over come this sort most predictable outcome? is it luna determined?
+```
+
+```text
+yes do all three, merge and deploy
+```

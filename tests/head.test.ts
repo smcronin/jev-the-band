@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { headSchema, inferPulse, parsePitch, readHead, readHeadPart } from '../shared/head.js';
+import {
+  headSchema,
+  headShift,
+  inferPulse,
+  parsePitch,
+  readHead,
+  readHeadPart,
+} from '../shared/head.js';
 import { Room } from '../server/room.js';
 import { type JevRequest, type Musician, type Snapshot, type Trace } from '../shared/music.js';
 
@@ -10,7 +17,7 @@ const head = {
   title: 'Lantern Walk',
   idea: 'A patient bass ostinato under a two-note guitar call; keys answer in bar 5.',
   bpm: 88,
-  root: 2,
+  tonic: 'D',
   mode: 'dorian' as const,
   keys: { left: 'rhodes' as const, right: 'organ' as const },
   guitar: [
@@ -245,9 +252,11 @@ test('the band reads the written head for twelve bars, labelled as Luna, then Je
   room.stop();
   assert.deepEqual([calls.director, calls.head], [1, 1]);
   assert.equal(room.state.head?.status, 'ready');
+  // The room chose tonight's tonic off-model and moved the written D head onto it.
+  const shift = headShift(headSchema.parse(head), room.state.head!.tonic);
   assert.deepEqual(
     [room.state.baseBpm, room.state.initialRoot, room.state.initialMode, room.state.opener],
-    [88, 2, 'dorian', 'bass'],
+    [88, room.state.head!.tonic, 'dorian', 'bass'],
   );
   assert.ok(
     !room.state.traces.some((tr) => tr.role === 'host'),
@@ -271,7 +280,7 @@ test('the band reads the written head for twelve bars, labelled as Luna, then Je
   assert.deepEqual(guitar(heads[0]).notes, []);
   assert.deepEqual(
     guitar(heads[1]).notes.map((n) => n.midi),
-    [62, 65, 69, 67, 65, 62],
+    [62, 65, 69, 67, 65, 62].map((m) => m + shift),
   );
   assert.equal(heads[2].parts.find((p) => p.role === 'keys')!.notes.length, 5);
   assert.equal(heads[0].parts.find((p) => p.role === 'drums')!.performance?.drumPulse, 2);
@@ -424,4 +433,27 @@ test('a head that arrives after its song has begun is reported as failed, and a 
   // The first song's head parts start with no memory: nothing 'has played' before bar 1.
   const opening = frames[0].parts.find((p) => !p.notes.length);
   assert.ok(opening && opening.performance?.hasPlayed === false);
+});
+
+test("bars written as one '|'-separated string spread into the following empty bars", async () => {
+  const { spreadBars } = await import('../shared/head.js');
+  assert.deepEqual(spreadBars(['a | b | c', '', '', 'd']), ['a', 'b', 'c', 'd']);
+  assert.deepEqual(spreadBars(['a | b', 'x']), ['a', 'x'], 'an occupied bar is never overwritten');
+  const { chunks, dropped } = readHeadPart(
+    'bass',
+    ['A1@0/1 | C2@0/1 | E2@0/1', ...silent.slice(1)],
+    head.keys,
+  );
+  assert.equal(dropped, 0);
+  assert.deepEqual(
+    chunks[0].map((n) => [n.beat, n.midi]),
+    [
+      [0, 33],
+      [4, 36],
+    ],
+  );
+  assert.deepEqual(
+    chunks[1].map((n) => [n.beat, n.midi]),
+    [[0, 40]],
+  );
 });

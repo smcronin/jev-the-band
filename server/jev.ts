@@ -31,6 +31,7 @@ import { endingPressure } from '../shared/score.js';
 import { listeningState } from './listening.js';
 import type { SonicConcept } from '../shared/concept.js';
 import { decisionEndpoints } from './provider.js';
+import { keyGuidance, restedTonics, type RecentKey } from '../shared/keys.js';
 
 export const choice = (
   instructions: string,
@@ -202,7 +203,10 @@ export function bootstrapRequest(
   model: string,
   concept?: SonicConcept,
   recentOpeners: Musician[] = [],
+  recentKeys: RecentKey[] = [],
 ): JevRequest {
+  // Tonics the last few jams used rest, unless the director already chose one of them.
+  const resting = restedTonics(recentKeys).filter((r) => r !== concept?.root);
   return {
     model,
     state: {
@@ -210,6 +214,7 @@ export function bootstrapRequest(
       prompt,
       sonicConcept: concept,
       recentOpeners,
+      recentKeys: keyGuidance(recentKeys),
       task: 'Invite the band into a new original jam. Pick who starts alone, a tempo, a tonic and a mode matching this title or description.',
     },
     questions: {
@@ -229,8 +234,12 @@ export function bootstrapRequest(
         ]),
       ]),
       root: choice(
-        'Tonic pitch class.',
-        Object.fromEntries(noteNames.map((name, i) => [String(i), name])),
+        'Tonic pitch class. Tonics the band used in recent jams are resting and not offered.',
+        Object.fromEntries(
+          noteNames
+            .map((name, i) => [String(i), name])
+            .filter(([i]) => !resting.includes(Number(i))),
+        ),
       ),
       mode: choice('Starting scale color.', modes),
     },
