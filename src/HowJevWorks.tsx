@@ -42,6 +42,7 @@ export function HowJevWorks({ onClose }: { onClose: () => void }) {
           <a href="#sees">Sees</a>
           <a href="#chooses">Chooses</a>
           <a href="#possibilities">Possibilities</a>
+          <a href="#systems">Two systems</a>
           <a href="#credits">Credits</a>
           <a href="#license">License</a>
           <a href="#seth">Seth</a>
@@ -160,16 +161,16 @@ export function HowJevWorks({ onClose }: { onClose: () => void }) {
           Moving the whole band’s key or tempo stays locked until a player is properly restless.
         </p>
         <p>
-          <b>LLM themes.</b> One language model is allowed near the band, and only as a songwriter’s
-          napkin. When you type a prompt, a director model (gpt-5.6-luna) turns it into a sonic
-          concept and a loose chart of four to six sections with ideas for each player. It never
-          writes a note or touches a pedal. Players see the prompt itself only for their first four
-          phrases; after that, what they hear matters more than what you said. Queue another prompt
-          mid-jam and the band lands the current song on its own, each player choosing how to
-          resolve or stop. Once the stage is silent the next song starts from nothing, with a fresh
-          opener, tempo and key and no memory of the last one. Luna can also sketch a 16-bar solo
-          story, off the clock, as advice. If Luna is late or down, the band plays from your raw
-          words and says so.
+          <b>LLM themes.</b> One language model is allowed near the band, and never on the clock.
+          When you type a prompt, a director model (gpt-5.6-luna) turns it into a sonic concept and
+          a loose chart of four to six sections with ideas for each player, and at the same time
+          writes the head, the twelve bars the band reads first (see the next section). Players see
+          the prompt itself only for their first four phrases; after that, what they hear matters
+          more than what you said. Queue another prompt mid-jam and the band lands the current song
+          on its own, each player choosing how to resolve or stop. Once the stage is silent the next
+          song starts from nothing, with a fresh opener, tempo and key and no memory of the last
+          one. Luna can also sketch a 16-bar solo story, off the clock, as advice. If Luna is late
+          or down, the band plays from your raw words and says so.
         </p>
         <p>
           The console shows both layers for every decision: the raw answer with its probabilities,
@@ -177,8 +178,58 @@ export function HowJevWorks({ onClose }: { onClose: () => void }) {
           inspectable trace, not a signed attestation, and none of it certifies taste.
         </p>
 
+        <h3 id="systems">
+          <i>04</i> Two systems, one band
+        </h3>
+        <p>
+          Daniel Kahneman described two kinds of thinking. System One is fast, automatic and
+          intuitive: you recognise a face, finish a bandmate’s phrase, feel where the downbeat is.
+          System Two is slow, deliberate and effortful: you work out a chord voicing, plan a set,
+          write a tune. TypeSafe calls Jev a System One model for a reason. It answers a
+          multiple-choice question in about a third of a second, and it cannot write a paragraph,
+          let alone a song. A language model like Luna is the opposite: it can write you twelve bars
+          with a turnaround, but it needs half a minute and cannot be interrupted by what the
+          drummer just did.
+        </p>
+        <p>A jam band needs both. So the head is written, and the jam is played.</p>
+        <ol className="about-steps">
+          <li>
+            <b>System Two writes the head.</b> When you press Play, Luna gets two jobs at once: the
+            sonic concept, and a written twelve-bar opening for all four players, in a compact
+            notation (<code>D3@0/1 F#3@1.5/0.5!f</code>, chords joined with <code>+</code>,{' '}
+            <code>L:</code> and <code>R:</code> for June’s hands, letters for the drums), with its
+            own tempo, key and mode. Both calls run together, so the first sound arrives after the
+            slower one, typically half a minute. Every written note passes the same checks as a Jev
+            note: instrument ranges, five fingers per hand, the bar it lives in. What cannot be
+            played is dropped and counted; a note written off the instrument is moved by octaves
+            onto it.
+          </li>
+          <li>
+            <b>The band reads.</b> For six two-bar phrases nobody composes and no Jev request is
+            made for the musicians. Each player card says “Reading the head · bars 3–4”, the chapter
+            is “Reading the head”, and every part is labelled <code>luna</code>. These are the only
+            notes in a live jam that Jev did not choose, and they are never dressed up as Jev’s.
+          </li>
+          <li>
+            <b>System One takes it from bar 13.</b> The rotation resumes: one player at a time
+            brings a new idea while the others keep playing their written bars. Each musician’s last
+            two head bars are its own memory, the whole head is what it heard, and Kit inherits the
+            written groove as its theme, so its first move is a variation, a fill or a drop rather
+            than a new beat. From here on every note is a Jev choice again, warmed by heat and
+            provoked by boredom as above.
+          </li>
+        </ol>
+        <p>
+          The handoff is deliberately one-way. Luna never hears the jam and never plays during it;
+          Jev never sees Luna’s reasoning, only the music. When you queue the next song, Luna writes
+          its head while the current one is still playing, so the fresh start reads it without
+          waiting. If a head fails, arrives late or is switched off, Jev opens the song itself, as
+          it always did, and the concept card says so. The head’s full request, latency, cost and
+          any dropped events sit under “Inspect the director brief”.
+        </p>
+
         <h3 id="credits">
-          <i>04</i> Credits
+          <i>05</i> Credits
         </h3>
         <ul className="about-credits">
           <li>
@@ -191,7 +242,7 @@ export function HowJevWorks({ onClose }: { onClose: () => void }) {
             <b>Jev</b> <span>the decision model, by TypeSafe</span>
           </li>
           <li>
-            <b>Luna</b> <span>gpt-5.6-luna, director and solo arranger</span>
+            <b>Luna</b> <span>gpt-5.6-luna, director, head writer and solo arranger</span>
           </li>
           <li>
             <b>Recorded instruments</b>{' '}
@@ -206,7 +257,7 @@ export function HowJevWorks({ onClose }: { onClose: () => void }) {
         </div>
 
         <h3 id="license">
-          <i>05</i> License
+          <i>06</i> License
         </h3>
         <p>
           The code is MIT licensed, © 2026 Seth Cronin. Take it, fork it, start a rival band. The
@@ -215,7 +266,7 @@ export function HowJevWorks({ onClose }: { onClose: () => void }) {
         </p>
 
         <h3 id="seth">
-          <i>06</i> About me
+          <i>07</i> About me
         </h3>
         <p>
           Seth lives in Vermont with his wife and two kids, working as an intellectual property

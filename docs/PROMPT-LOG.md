@@ -628,3 +628,9 @@ basically an extension of the system one / system two thinking. luna gives each 
 **User request:**
 
 > Sounds good. Can you generate a dozen or so more variations of this kind of thing, and then add that to the startup sequence, merge to main, and push to prod?
+
+## 2026-09-22 — System One / System Two in the liner notes
+
+```text
+can you add documentation on system one / system two thinking to the 'how does jev work' modal?
+```
