@@ -265,3 +265,98 @@ test('Start sounds the crowd before slow instrument downloads, then failure stop
   expect(result.preserved).toBe(true);
   expect(result.stopped).toBe(true);
 });
+
+test('pre-show checks are spaced, fade at the first frame, and never play for spectators or muted listeners', async ({
+  page,
+}) => {
+  await page.route('**/audience-harness', (route) =>
+    route.fulfill({ contentType: 'text/html', body: '<title>Soundcheck lifecycle</title>' }),
+  );
+  // Isolate the actual generated checks from the crowd to measure their fade and silence.
+  await page.route('**/audience/manifest.json', async (route) => {
+    const response = await route.fetch();
+    const bank = await response.json();
+    bank.samples = bank.samples.filter((s: { kind: string }) => s.kind === 'soundcheck');
+    await route.fulfill({ json: bank });
+  });
+  await page.goto('/audience-harness');
+  const result = await page.evaluate(async () => {
+    const path = '/src/audience.ts';
+    const { AudiencePlayer } = await import(path);
+    const render = async (welcome: boolean, muted = false) => {
+      const ctx = new OfflineAudioContext(2, 22050 * 8, 22050);
+      const player = new AudiencePlayer(ctx);
+      await player.loadBank();
+      const ready = player.status.readySamples;
+      player.setControls({ enabled: !muted, reactions: true, levelDb: 0 });
+      player.start('checks', welcome);
+      player.tick(2);
+      const firstCount = player.voices.size;
+      player.tick(2.5);
+      const secondCount = player.voices.size;
+      player.endSoundcheck(4);
+      player.tick(6);
+      const data = (await ctx.startRendering()).getChannelData(0);
+      const rms = (a: number, b: number) =>
+        Math.sqrt(
+          data.slice(a * 22050, b * 22050).reduce((p: number, n: number) => p + n * n, 0) /
+            ((b - a) * 22050),
+        );
+      player.dispose();
+      return { ready, firstCount, secondCount, during: rms(2, 4), after: rms(5, 8) };
+    };
+    return {
+      opening: await render(true),
+      spectator: await render(false),
+      muted: await render(true, true),
+    };
+  });
+  expect(result.opening.firstCount).toBe(1);
+  expect(result.opening.ready).toBe(3);
+  expect(result.opening.secondCount).toBe(1);
+  expect(result.opening.during).toBeGreaterThan(0.0001);
+  expect(result.opening.after).toBe(0);
+  expect(result.spectator.during).toBe(0);
+  expect(result.muted.during).toBe(0);
+});
+
+test('all sixteen generated checks decode, stay within the calibrated peak ceiling, and keep cache bounded', async ({
+  page,
+}) => {
+  await page.route('**/soundcheck-harness', (r) =>
+    r.fulfill({ contentType: 'text/html', body: '<title>Check bank QA</title>' }),
+  );
+  await page.goto('/soundcheck-harness');
+  const result = await page.evaluate(async () => {
+    const path = '/src/audience.ts';
+    const { AudiencePlayer } = await import(path);
+    const player = new AudiencePlayer(new OfflineAudioContext(2, 22050, 22050));
+    await player.loadBank();
+    const bank = await (await fetch('/audience/manifest.json')).json();
+    const rows = [];
+    for (const sample of bank.samples.filter((s: { kind: string }) => s.kind === 'soundcheck')) {
+      await player.loadClip(sample);
+      const clip = player.cache.get(sample.id);
+      if (!clip) throw new Error('Missing decoded check');
+      let peak = 0,
+        power = 0;
+      for (let c = 0; c < clip.buffer.numberOfChannels; c++)
+        for (const n of clip.buffer.getChannelData(c)) {
+          peak = Math.max(peak, Math.abs(n));
+          power += n * n;
+        }
+      rows.push({ peak, power, duration: clip.buffer.duration });
+    }
+    const cacheSize = player.cache.size;
+    player.dispose();
+    return { rows, cacheSize };
+  });
+  expect(result.rows).toHaveLength(16);
+  expect(result.cacheSize).toBeLessThanOrEqual(12);
+  for (const row of result.rows) {
+    expect(row.peak).toBeLessThanOrEqual(0.500001);
+    expect(row.power).toBeGreaterThan(0);
+    expect(row.duration).toBeGreaterThan(2.9);
+    expect(row.duration).toBeLessThan(3.1);
+  }
+});

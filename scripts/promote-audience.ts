@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { lstat, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { copyFile, lstat, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { basename, dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { audienceBankSchema } from '../shared/audience.js';
@@ -50,6 +50,10 @@ export async function promoteAudience(
   for (const [filename, bytes] of files)
     await writeFile(resolve(staging, filename), bytes, { flag: 'wx' });
   await writeFile(resolve(staging, 'manifest.json'), JSON.stringify(publicBank, null, 2) + '\n');
+  await writeFile(
+    resolve(staging, 'CREDITS.md'),
+    `# Audience and pre-show sound checks — elevenlabs.io\n\n${publicBank.license}\n\n${approved.length} recordings. Provider, model and per-file hashes are in manifest.json. Technical approval does not imply human listening approval.\n`,
+  );
   await mkdir(dirname(publicDirectory), { recursive: true });
   let backup: string | undefined;
   try {
@@ -70,13 +74,40 @@ export async function promoteAudience(
   return { published: approved.length };
 }
 
+export async function promoteSoundcheck(publicLicense: string) {
+  const current = audienceBankSchema.parse(
+    JSON.parse(await readFile('public/audience/manifest.json', 'utf8')),
+  );
+  const additions = audienceBankSchema.parse(
+    JSON.parse(await readFile('artifacts/soundcheck-bank/manifest.json', 'utf8')),
+  );
+  if (additions.samples.some((s) => s.kind !== 'soundcheck'))
+    throw new Error('Expected only soundcheck clips');
+  const staging = resolve('artifacts', `soundcheck-promotion-${randomUUID()}`);
+  await mkdir(staging, { recursive: true });
+  const samples = [...current.samples.filter((s) => s.kind !== 'soundcheck'), ...additions.samples];
+  for (const sample of samples.filter((s) => s.approved)) {
+    const directory =
+      sample.kind === 'soundcheck' ? 'artifacts/soundcheck-bank' : 'public/audience';
+    await copyFile(
+      resolve(directory, basename(sample.path)),
+      resolve(staging, basename(sample.path)),
+    );
+  }
+  await writeFile(resolve(staging, 'manifest.json'), JSON.stringify({ ...current, samples }));
+  return promoteAudience(staging, resolve('public/audience'), publicLicense);
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const args = process.argv.slice(2);
   const at = args.indexOf('--public-license');
-  promoteAudience(
-    resolve('artifacts/audience-bank'),
-    resolve('public/audience'),
-    at < 0 ? '' : (args[at + 1] ?? ''),
+  (args.includes('--soundcheck')
+    ? promoteSoundcheck(at < 0 ? '' : (args[at + 1] ?? ''))
+    : promoteAudience(
+        resolve('artifacts/audience-bank'),
+        resolve('public/audience'),
+        at < 0 ? '' : (args[at + 1] ?? ''),
+      )
   )
     .then((result) => console.log(JSON.stringify(result)))
     .catch(() => {

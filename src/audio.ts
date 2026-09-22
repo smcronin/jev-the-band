@@ -433,6 +433,9 @@ export class BandAudio {
       if (frame.at + frame.durationMs < now || frame.at > now + 180) continue;
       const mixKey = `${frame.id}:master`;
       if (!this.seen.has(mixKey)) {
+        this.audience?.endSoundcheck(
+          Math.max(c.currentTime, c.currentTime + (frame.at - now) / 1000),
+        );
         this.applyMaster(
           frame.engineerMix ?? defaultEngineerMix(),
           Math.max(c.currentTime, c.currentTime + (frame.at - now) / 1000),

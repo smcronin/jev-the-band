@@ -41,14 +41,47 @@ export function audienceGenerationPlan(count = 3) {
   });
 }
 
+export function soundcheckGenerationPlan(variations = false) {
+  const originals = [
+    'Electric guitar: three loose muted string scratches and a short damped strum, clean amp',
+    'Acoustic drum kit: a few irregular hi-hat pedal chicks, one brief open sizzle closed by the foot',
+    'Electric bass: two soft isolated low plucks, finger contact and quickly damped strings',
+    'Acoustic piano: a tiny light upper-register twinkle of three notes, short natural decay',
+  ];
+  const extras = [
+    'Electric guitar: two palm-muted low string chucks then a soft pick scrape, clean amp',
+    'Electric guitar: a pair of delicate high natural harmonics, allowed to ring briefly',
+    'Electric guitar: a loose muted upstroke and one short clean double-stop, quickly damped',
+    'Acoustic drum kit: two gentle hi-hat foot closures separated by silence',
+    'Acoustic drum kit: a soft snare rim click followed by one quiet closed hi-hat tap',
+    'Acoustic drum kit: one gently brushed hi-hat sizzle, immediately choked, then a pedal chick',
+    'Electric bass: a muted thumb thump then one round low finger pluck, quickly damped',
+    'Electric bass: two soft upper-string harmonics with a tiny finger slide between them',
+    'Electric bass: a short pair of warm mid-register finger plucks, no rhythmic pattern',
+    'Acoustic piano: two delicate high notes and one soft middle-register note, disconnected',
+    'Rhodes electric piano: a tiny warm two-note bell-like check, gently released',
+    'Acoustic piano: a brief descending three-note sparkle with a soft pedal release',
+  ];
+  return (variations ? extras : originals).map((gesture) => ({
+    mood: 'listening' as const,
+    kind: 'soundcheck' as const,
+    durationSeconds: 3,
+    loop: false,
+    prompt: `Isolated pre-show instrument sound check. ${gesture}. Casual musician testing levels on an outdoor stage. Sparse dry close sound with silence between gestures. No song, groove, backing music, voices, crowd, applause or other instruments. Gentle attack and natural fade to silence.`,
+  }));
+}
+
 async function main() {
   const args = process.argv.slice(2);
   const value = (key: string) => {
     const at = args.indexOf(key);
     return at < 0 ? undefined : args[at + 1];
   };
-  const count = Number(value('--count') ?? 3);
-  const plan = audienceGenerationPlan(count);
+  const soundcheck = args.includes('--soundcheck');
+  const plan = soundcheck
+    ? soundcheckGenerationPlan(args.includes('--variations'))
+    : audienceGenerationPlan(Number(value('--count') ?? 3));
+  const count = plan.length;
   if (plan.some((clip) => clip.prompt.length > 450))
     throw new Error('Sound-effects prompts must be 450 characters or fewer.');
   const estimatedCredits = plan.reduce((sum, clip) => sum + clip.durationSeconds * 40, 0);
@@ -87,7 +120,7 @@ async function main() {
       'Provide --license with the actual output-use terms. Free-plan publication requires attribution and noncommercial use; the code license does not cover these recordings.',
     );
   // Generation is private. Public assets are copied only by promote-audience after review.
-  const directory = resolve('artifacts/audience-bank');
+  const directory = resolve(soundcheck ? 'artifacts/soundcheck-bank' : 'artifacts/audience-bank');
   const manifestPath = resolve(directory, 'manifest.json');
   let bank: AudienceBank;
   try {
@@ -185,7 +218,7 @@ async function main() {
       !response.headers.get('content-type')?.includes('audio')
     )
       throw new Error('Provider returned an invalid audio payload; generation stopped.');
-    const id = `${clip.mood}-${randomUUID().slice(0, 8)}`;
+    const id = `${soundcheck ? 'soundcheck' : clip.mood}-${randomUUID().slice(0, 8)}`;
     const rawCost = response.headers.get('character-cost');
     const cost = rawCost === null ? NaN : Number(rawCost);
     const billedCredits = Number.isFinite(cost) && cost >= 0 ? cost : undefined;
@@ -226,7 +259,7 @@ async function main() {
     );
   }
   console.log(
-    'Generation finished in private artifacts/audience-bank. Audition the files, verify redistribution rights, mark approved clips in its manifest, then run promote:audience with a public license statement.',
+    `Generation finished in private ${directory}. Audition the files, verify redistribution rights, mark approved clips in its manifest, then run promote:audience${soundcheck ? ' -- --soundcheck' : ''} with a public license statement.`,
   );
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

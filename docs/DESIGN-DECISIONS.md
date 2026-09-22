@@ -492,3 +492,22 @@ Fill, drop and build are moments: they sound once, the following repeat is the g
 **Provenance.** This is the first time notes that are not Jev decisions sound in a live jam. They are never labelled Jev: `source: 'luna'`, the head report (request, model, latency, cost, dropped counts) is published with the concept, and AGENTS.md now says so. Jev's later phrases are still entirely Jev's.
 
 **Cost and time.** Head and concept run concurrently, so the first sound arrives after the slower of the two (34 s in the live run) instead of their sum. A head costs about $0.003–0.005.
+
+
+## 2026-09-22 — Pre-show sound checks
+
+**User requirement:** layer short ElevenLabs instrument checks over the crowd while the first song is being prepared: muted guitar, hi-hat and piano gestures.
+
+**Implementation choices:** four offline three-second clips (also including bass), spaced by two to five seconds of silence, beginning after two seconds. No immediate repeated take when alternatives are loaded. The existing audience bus controls their level and mute; no extra runtime provider calls or fabricated Jev decisions. A 120 ms fade at the first scheduled frame hands over to the music. Failed starts stop checks; spectators and archive rendering do not start them. A 90-second ceiling bounds an unusually long wait.
+
+**Current limitation:** the configured ElevenLabs key returned HTTP 401 / invalid_api_key before any clip was generated. Playback plumbing is implemented, but the new layer remains silent until recordings are generated and promoted. Lifecycle browser verification uses existing audio as an explicitly labeled fixture, not evidence of instrument sound quality. No deployment performed.
+
+### 2026-09-22 — Soundcheck recordings completed
+
+A replacement local credential resolved the generation failure. Four distinct three-second, 44.1 kHz stereo MP3s are now bundled with the existing 24 crowd clips. Response billing was 30 credits each (120 total). Hashes and full decode were verified before local promotion. Technical approval is recorded privately; human listening approval remains false. The browser lifecycle test now exercises all four actual soundcheck recordings rather than substitute crowd audio. This supersedes the pending-generation limitation above. No deployment performed.
+
+## 2026-09-22 — Sixteen startup variations
+
+**User requirement:** the first preview sounds good; generate roughly twelve additional variations, add them to startup, merge to main and deploy production.
+
+**Implementation:** twelve additional three-second clips (three each of guitar, kit, bass and keys) expand the bank to sixteen. Generation billed 360 additional credits, 480 across all sixteen. Startup warms three randomly selected checks with the crowd and lazily loads further variations; the cache stays capped at twelve decoded clips. The checks remain separated by two to five seconds and fade at the first frame. Promotion now writes public audio credits as well as the manifest. New clips passed decode, hash and level checks; the user's listening approval applies to the original preview, not an unheard new bank.

@@ -615,3 +615,16 @@ jev takes the jams from there?
 
 basically an extension of the system one / system two thinking. luna gives each of the jevs a specific place to start with an actual composition that makes some sense; and then the jam takes it from there!
 ```
+
+
+## 2026-09-22 — Pre-show instrument checks
+
+**User request:**
+
+> There's about 30 seconds in between the user pressing the prompt button. Currently, we have the audience noise, which is great, but it's still a long time to wait for the band to start playing. I wonder: can we also layer some sound effects into that just to transition to the band playing? That's almost like quick instrument sound checks. Right before Fish or another jam band plays the song, you'll hear them kind of just testing out the instrument audio, like strumming the muted strings or opening and closing a hi hat, with a few twinkles of piano. I don't know if it's possible to layer in some sound effects that are basically like band sound checks. Using the same Eleven Labs sound effect generator that we used previously
+
+## 2026-09-22 — Expanded startup sound checks and production release
+
+**User request:**
+
+> Sounds good. Can you generate a dozen or so more variations of this kind of thing, and then add that to the startup sequence, merge to main, and push to prod?

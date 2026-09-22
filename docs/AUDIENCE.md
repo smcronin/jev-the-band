@@ -39,3 +39,19 @@ Promotion verifies hashes, strips private prompts/billing, publishes only approv
 All 24 files have distinct SHA-256 hashes, decode successfully, and have the requested duration and supported channel count. Browser tests render the real recordings through Web Audio and check crossfades, gain limits, silence, reaction spacing, failed-start cleanup, and crowd playback before delayed instrument loading with zero notes scheduled. No model calls are needed for playback verification.
 
 This release received technical playback validation, **not human listening approval**. The generation prompts explicitly exclude music, instruments, singing and intelligible speech; that semantic content is not independently certified by file/level tests. A human audition remains useful for selecting favorite takes or rejecting an odd model artifact.
+
+## Pre-show instrument checks
+
+The startup player also accepts approved `soundcheck` clips. Four three-second prompts cover muted guitar, pedal hi-hat, damped bass and piano twinkles. Generation uses the same provider/model with a separate private manifest and durable credit ledger:
+
+```sh
+npm run generate:audience -- --soundcheck
+npm run generate:audience -- --soundcheck --execute --max-credits 600 --license "Accurate output-use terms"
+npm run promote:audience -- --soundcheck --public-license "Accurate combined audio-use terms"
+```
+
+The batch estimates 480 credits. The first attempt on 2026-09-22 returned invalid_api_key, produced no files and left a conservative 120-credit reservation; a 600-credit lifetime cap includes that reservation plus a new four-clip batch. No automatic retry is performed. After successful generation, review the files and mark selected samples approved in `artifacts/soundcheck-bank/manifest.json`. Soundcheck promotion preserves existing crowd samples and replaces only the soundcheck subset. No new recordings are currently bundled; generation and listening review remain pending a working credential.
+
+**Completion update, 2026-09-22:** the replacement credential worked. Four soundcheck recordings are now bundled (28 crowd/check clips total), billed at 120 credits total. Every new clip is a distinct three-second stereo MP3 with verified hash and successful full decode. Private QA records technical approval only, not human listening approval. The generated recordings now participate in browser fade/mute/spectator checks. The earlier pending-generation statement is superseded. Credentials remain only in ignored local configuration.
+
+**Expanded bank, 2026-09-22:** twelve additional three-second checks bring the total to sixteen checks plus 24 crowd clips. Use `--soundcheck --variations` to generate the additional prompt set. The private lifetime reservation is now 2,040 credits (including the failed-key reservation); actual successful generation billing totals 480 credits. Startup warms three random checks and lazily rotates through the rest within the twelve-buffer cache. All checks use the existing loudness calibration and 0.5 decoded peak ceiling; this also attenuates MP3 overshoot in the original guitar file. Public promotion regenerates `CREDITS.md` so attribution survives bank replacement.

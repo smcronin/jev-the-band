@@ -245,6 +245,166 @@
       "prompt": "[Generation prompt withheld; retained in the private approval record.]",
       "sha256": "b22ba9dd467e328a97e61e5b1f9d22e6e2451650b40db9a966b7e6bc63622757",
       "approved": true
+    },
+    {
+      "id": "soundcheck-72dea49c",
+      "path": "/audience/soundcheck-72dea49c.mp3",
+      "mood": "listening",
+      "kind": "soundcheck",
+      "durationSeconds": 3,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "b153794a1c73e2ebb81f016c6d0a9d15226444f9e06fb13364151300c7d8f1ff",
+      "approved": true
+    },
+    {
+      "id": "soundcheck-559719e6",
+      "path": "/audience/soundcheck-559719e6.mp3",
+      "mood": "listening",
+      "kind": "soundcheck",
+      "durationSeconds": 3,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "8ea79ce70f284950394e2064568cc501a988d5a84b7ebb8f195901a8a1a7a77f",
+      "approved": true
+    },
+    {
+      "id": "soundcheck-94a9d216",
+      "path": "/audience/soundcheck-94a9d216.mp3",
+      "mood": "listening",
+      "kind": "soundcheck",
+      "durationSeconds": 3,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "483280929013e82b86e0bca6b46c9b8c0a6da648c7ce28f00124dc6467d36977",
+      "approved": true
+    },
+    {
+      "id": "soundcheck-a5a898f5",
+      "path": "/audience/soundcheck-a5a898f5.mp3",
+      "mood": "listening",
+      "kind": "soundcheck",
+      "durationSeconds": 3,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "ef8b244da71573e67367710b76f77aeda04fc56dc604eefc3d9c68fe83f6756d",
+      "approved": true
+    },
+    {
+      "id": "soundcheck-9c8be38d",
+      "path": "/audience/soundcheck-9c8be38d.mp3",
+      "mood": "listening",
+      "kind": "soundcheck",
+      "durationSeconds": 3,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "eb71d7a5b356351bd44784a6efe8a48d98d4d1498158ae1c940fc47a2c021df2",
+      "approved": true
+    },
+    {
+      "id": "soundcheck-6485420e",
+      "path": "/audience/soundcheck-6485420e.mp3",
+      "mood": "listening",
+      "kind": "soundcheck",
+      "durationSeconds": 3,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "9fbddf4b9f422e20d1fc09f281795b25893213b8e002b13796ce371fdb1ddea3",
+      "approved": true
+    },
+    {
+      "id": "soundcheck-2206b959",
+      "path": "/audience/soundcheck-2206b959.mp3",
+      "mood": "listening",
+      "kind": "soundcheck",
+      "durationSeconds": 3,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "e45e0c51028cd2fa82d1df83ec724eddbc0bea4c8ca78aff9e2bf06a160e7878",
+      "approved": true
+    },
+    {
+      "id": "soundcheck-f815ba96",
+      "path": "/audience/soundcheck-f815ba96.mp3",
+      "mood": "listening",
+      "kind": "soundcheck",
+      "durationSeconds": 3,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "a2a200cf14631718f37fa9638ee8a9064d6da792108f6e193d0342725ef60cd6",
+      "approved": true
+    },
+    {
+      "id": "soundcheck-5dce8fb9",
+      "path": "/audience/soundcheck-5dce8fb9.mp3",
+      "mood": "listening",
+      "kind": "soundcheck",
+      "durationSeconds": 3,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "7ceff5b86a025fd943896703a8917fbf0460284f170926e5bbbfd68fc4671c4b",
+      "approved": true
+    },
+    {
+      "id": "soundcheck-4aac9834",
+      "path": "/audience/soundcheck-4aac9834.mp3",
+      "mood": "listening",
+      "kind": "soundcheck",
+      "durationSeconds": 3,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "6dee189a75aa181ccbe8d5b77aca147525f4b6c02025898fc719fdf755728227",
+      "approved": true
+    },
+    {
+      "id": "soundcheck-7ca66400",
+      "path": "/audience/soundcheck-7ca66400.mp3",
+      "mood": "listening",
+      "kind": "soundcheck",
+      "durationSeconds": 3,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "fa472cce692bf55195144866025d3aaf4f73a6c226184c54df81f2ad9688ec65",
+      "approved": true
+    },
+    {
+      "id": "soundcheck-fee3c734",
+      "path": "/audience/soundcheck-fee3c734.mp3",
+      "mood": "listening",
+      "kind": "soundcheck",
+      "durationSeconds": 3,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "d4ed4f149c7d2c8bbd9ecd55a03e35c548a3a51e7ebdd9afc28a0e214c15e487",
+      "approved": true
+    },
+    {
+      "id": "soundcheck-a9025408",
+      "path": "/audience/soundcheck-a9025408.mp3",
+      "mood": "listening",
+      "kind": "soundcheck",
+      "durationSeconds": 3,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "7602cede3de649a199e2b975a6d5f4cae97e07de5920c7776bbd028858e89405",
+      "approved": true
+    },
+    {
+      "id": "soundcheck-6969411c",
+      "path": "/audience/soundcheck-6969411c.mp3",
+      "mood": "listening",
+      "kind": "soundcheck",
+      "durationSeconds": 3,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "4cdf0b48c082c1f0cd781a8dbb3025388e816b9b11177e1b9f1d72854395a5e5",
+      "approved": true
+    },
+    {
+      "id": "soundcheck-b9de62b5",
+      "path": "/audience/soundcheck-b9de62b5.mp3",
+      "mood": "listening",
+      "kind": "soundcheck",
+      "durationSeconds": 3,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "ab106f2a12424227f188b952617924b4d5601664e1be1263032d3b971f447a5c",
+      "approved": true
+    },
+    {
+      "id": "soundcheck-d665f7f6",
+      "path": "/audience/soundcheck-d665f7f6.mp3",
+      "mood": "listening",
+      "kind": "soundcheck",
+      "durationSeconds": 3,
+      "prompt": "[Generation prompt withheld; retained in the private approval record.]",
+      "sha256": "6390a56bd32583836f2dc757524ed48721541df646afcdd3c605e8ff65f6682e",
+      "approved": true
     }
   ]
 }
