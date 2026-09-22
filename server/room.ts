@@ -138,11 +138,11 @@ export class Room extends EventEmitter {
     return true;
   }
   /** One frame of the head as performed parts. Kit inherits the written groove as its theme. */
-  private headParts(chunk: number, index: number): Part[] {
+  private headParts(chunk: number, index: number, prior: Frame | null): Part[] {
     const chapter = this.state.director?.concept?.chapters[0];
     return musicians.map((role) => {
       const notes = structuredClone(this.head![role][chunk]);
-      const previous = this.state.frame?.parts.find((p) => p.role === role);
+      const previous = prior?.parts.find((p) => p.role === role);
       const decision = { ...defaultDecision(), action: 'develop' as const };
       if (role === 'keys' && this.state.head?.head) {
         decision.left = this.state.head.head.keys.left;
@@ -270,7 +270,17 @@ export class Room extends EventEmitter {
           model: this.options.directorModel!,
           requestedAt: Date.now(),
         };
-        cue.head = await this.requestHead(prompt, report.concept);
+        const head = await this.requestHead(prompt, report.concept);
+        // A head that arrives after its song began was never played; say so rather than show it.
+        cue.head =
+          cue.appliedAt !== undefined && head.status === 'ready'
+            ? {
+                ...head,
+                head: undefined,
+                status: 'failed',
+                error: 'Head arrived after the song had begun; Jev opened it.',
+              }
+            : head;
         if (!this.abort.signal.aborted) this.publish();
       });
     return cue;
@@ -339,9 +349,9 @@ export class Room extends EventEmitter {
     }
     this.emit('trace', t);
   }
-  async start(): Promise<void> {
+  async start(restarting = false): Promise<void> {
     try {
-      if (this.state.mode === 'live') {
+      if (this.state.mode === 'live' && !restarting) {
         const headPending =
           this.options.directorModel && this.options.headEnabled !== false
             ? this.requestHead(this.state.prompt, undefined)
@@ -373,6 +383,8 @@ export class Room extends EventEmitter {
           if (!this.head) this.state.head = report;
           this.publish();
         }
+      }
+      if (this.state.mode === 'live') {
         if (this.abort.signal.aborted) return;
         if (!this.head) {
           this.state.requests++;
@@ -392,7 +404,8 @@ export class Room extends EventEmitter {
           this.trace(t);
           if (t.source !== 'jev' && this.failover(t.error ?? 'Opening request failed', -1)) {
             this.publish();
-            return this.start();
+            // Retry only the opening decision: the concept and head are already in hand.
+            return this.start(true);
           }
           if (t.source !== 'jev') throw new Error(t.error ?? 'Could not start Jev');
           this.state.opener = t.answers.opener.choice as Musician;
@@ -781,7 +794,7 @@ export class Room extends EventEmitter {
     if (headChunk !== undefined) for (const role of musicians) this.due.set(role, index + 1);
     const parts =
       headChunk !== undefined
-        ? this.headParts(headChunk, index)
+        ? this.headParts(headChunk, index, prior)
         : [...decisions].map(([role, { d, source }]) => {
             const previous = prior?.parts.find((p) => p.role === role);
             if (this.state.mode === 'live') {

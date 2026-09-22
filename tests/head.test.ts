@@ -361,3 +361,67 @@ test('a queued song receives its head while the previous song plays and starts b
     6,
   );
 });
+
+test('a head that arrives after its song has begun is reported as failed, and a fresh start carries no memory into head parts', async (t) => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1000000 });
+  let releaseHead: (() => void) | undefined;
+  let heads = 0;
+  t.mock.method(globalThis, 'fetch', async (url: unknown, init: RequestInit) => {
+    const body = JSON.parse(init.body as string);
+    if (String(url).includes('chat/completions')) {
+      if (body.response_format.json_schema.name === 'head') {
+        // The first song's head is fine; the queued song's head is held back until after it starts.
+        if (heads++ > 0) await new Promise<void>((resolve) => (releaseHead = resolve));
+        return new Response(
+          JSON.stringify({
+            id: 'h',
+            choices: [{ message: { content: JSON.stringify(head) } }],
+            usage: { cost: 0 },
+          }),
+        );
+      }
+      return new Response(
+        JSON.stringify({
+          id: 'd',
+          choices: [{ message: { content: JSON.stringify(concept) } }],
+          usage: { cost: 0 },
+        }),
+      );
+    }
+    const name = body.state.persona?.name ?? body.state.context?.persona?.name;
+    const role: Musician =
+      name === 'JUNE' ? 'keys' : name === 'KIT' ? 'drums' : name === 'MOSS' ? 'bass' : 'guitar';
+    const trace = jevReply(body, role);
+    return new Response(JSON.stringify({ answers: trace.answers, usage: { cost: 0 } }));
+  });
+  const room = new Room('Lantern', 'live', 'fixture', 'test', 6000, 600, {
+    directorModel: 'luna',
+    directorApiKey: 'or',
+  });
+  const frames: NonNullable<Snapshot['frame']>[] = [];
+  room.on('state', (state) => {
+    if (state.frame && state.frame.id !== frames.at(-1)?.id)
+      frames.push(structuredClone(state.frame));
+  });
+  await room.start();
+  let cue: ReturnType<Room['queueTheme']> | undefined;
+  for (let s = 0; s < 200; s++) {
+    t.mock.timers.tick(1000);
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    if (s === 20) cue = room.queueTheme('Second song');
+    if (frames.some((f) => f.themeId === cue?.id) && releaseHead) {
+      releaseHead();
+      releaseHead = undefined;
+    }
+  }
+  room.stop();
+  const first = frames.find((f) => f.themeId === cue!.id)!;
+  assert.notEqual(first.chapter, 'Reading the head');
+  assert.ok(first.parts.every((p) => p.source === 'jev'));
+  assert.equal(cue!.head?.status, 'failed');
+  assert.match(cue!.head!.error!, /after the song had begun/);
+  assert.equal(cue!.head?.head, undefined);
+  // The first song's head parts start with no memory: nothing 'has played' before bar 1.
+  const opening = frames[0].parts.find((p) => !p.notes.length);
+  assert.ok(opening && opening.performance?.hasPlayed === false);
+});
