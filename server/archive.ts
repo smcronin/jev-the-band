@@ -117,6 +117,31 @@ export class Archive {
     if (state.endedAt) state.frames = clipFrames(state.frames, -Infinity, state.endedAt);
     return state;
   }
+  /** The keys of the most recent live jams' songs, oldest first. */
+  async recentKeys(limit = 8): Promise<import('../shared/keys.js').RecentKey[]> {
+    const states = (await this.query("SELECT * FROM jtb_archive WHERE kind='state'"))
+      .map((r) => JSON.parse(r.data) as Snapshot)
+      .filter((s) => s.mode === 'live')
+      .sort((a, b) => a.startedAt - b.startedAt);
+    const songs = (await this.query("SELECT * FROM jtb_archive WHERE kind='song'")).map((r) => ({
+      jam: r.id,
+      cue: JSON.parse(r.data) as NonNullable<Snapshot['setlist']>[number],
+    }));
+    const keys: import('../shared/keys.js').RecentKey[] = [];
+    for (const s of states) {
+      const own = songs
+        .filter((row) => row.jam === s.id && row.cue.appliedAt !== undefined)
+        .map((row) => row.cue)
+        .sort((a, b) => a.atFrame - b.atFrame);
+      for (const cue of own)
+        if (cue.root !== undefined && cue.mode)
+          keys.push({ root: cue.root, mode: cue.mode, title: cue.prompt.split(/\r?\n/)[0] });
+      // Jams recorded before songs carried keys: the opening key is still known.
+      if (!own.some((c) => c.root !== undefined) && s.initialRoot !== undefined && s.initialMode)
+        keys.push({ root: s.initialRoot, mode: s.initialMode, title: s.title });
+    }
+    return keys.slice(-limit);
+  }
   async list(q = '') {
     const rows = await this.query("SELECT * FROM jtb_archive WHERE kind='state'");
     const songRows = await this.query("SELECT * FROM jtb_archive WHERE kind='song'");
