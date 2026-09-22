@@ -49,7 +49,15 @@ test('audience promotion publishes only reviewed bytes, strips private metadata 
       await promoteAudience(privateDir, publicDir, 'Reviewed public redistribution grant.'),
       { published: 1 },
     );
-    assert.deepEqual((await readdir(publicDir)).sort(), ['approved.mp3', 'manifest.json']);
+    assert.deepEqual((await readdir(publicDir)).sort(), [
+      'CREDITS.md',
+      'approved.mp3',
+      'manifest.json',
+    ]);
+    assert.match(
+      await readFile(join(publicDir, 'CREDITS.md'), 'utf8'),
+      /Reviewed public redistribution grant/,
+    );
     const manifest = await readFile(join(publicDir, 'manifest.json'), 'utf8');
     assert.doesNotMatch(manifest, /PRIVATE|billedCredits|rejected/);
     assert.equal(await readFile(join(publicDir, 'approved.mp3'), 'utf8'), 'audio approved');
@@ -66,7 +74,7 @@ test('audience promotion publishes only reviewed bytes, strips private metadata 
       await promoteAudience(privateDir, publicDir, 'Reviewed public redistribution grant.'),
       { published: 0 },
     );
-    assert.deepEqual(await readdir(publicDir), ['manifest.json']);
+    assert.deepEqual((await readdir(publicDir)).sort(), ['CREDITS.md', 'manifest.json']);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

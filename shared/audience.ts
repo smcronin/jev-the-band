@@ -49,7 +49,7 @@ export const audienceSampleSchema = z.object({
   id: z.string().regex(/^[a-z0-9_-]{1,80}$/),
   path: z.string().regex(/^\/audience\/[a-z0-9_-]+\.(?:mp3|wav|ogg)$/),
   mood: z.enum(audienceMoods),
-  kind: z.enum(['bed', 'reaction']),
+  kind: z.enum(['bed', 'reaction', 'soundcheck']),
   durationSeconds: z.number().finite().min(2).max(30),
   prompt: z.string().min(1).max(2400),
   sha256: z.string().regex(/^[a-f0-9]{64}$/),

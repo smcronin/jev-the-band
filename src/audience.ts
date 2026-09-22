@@ -22,11 +22,12 @@ export interface AudienceStatus {
   error?: string;
 }
 interface Voice {
+  kind: AudienceSample['kind'];
   source: AudioBufferSourceNode;
   envelope: GainNode;
   end: number;
 }
-type Clip = { id: string; buffer: AudioBuffer; kind: 'bed' | 'reaction'; mood: AudienceMood };
+type Clip = { id: string; buffer: AudioBuffer; kind: AudienceSample['kind']; mood: AudienceMood };
 function randomGenerator(seed: number) {
   let state = seed >>> 0;
   return () => {
@@ -125,6 +126,9 @@ export class AudiencePlayer {
   private reactionUntil = 0;
   private lastBed = '';
   private lastReaction = '';
+  private soundcheckUntil = 0;
+  private nextSoundcheck = Infinity;
+  private lastSoundcheck = '';
   private error: string | undefined;
 
   constructor(
@@ -182,6 +186,13 @@ export class AudiencePlayer {
       const warm = [
         approved.find((s) => s.mood === 'cheering'),
         approved.find((s) => s.kind === 'bed'),
+        // Warm only three varied checks so a larger bank cannot delay or evict the crowd.
+        ...approved
+          .filter((s) => s.kind === 'soundcheck')
+          .map((sample) => ({ sample, order: Math.random() }))
+          .sort((a, b) => a.order - b.order)
+          .slice(0, 3)
+          .map(({ sample }) => sample),
         approved.find((s) => s.mood === 'applause'),
         ...approved.filter((s) => s.kind === 'bed').slice(1, 3),
       ].filter((s): s is AudienceSample => !!s);
@@ -240,6 +251,8 @@ export class AudiencePlayer {
     if (this.disposed || this.playing) return;
     this.random = randomGenerator(typeof seed === 'string' ? hash(seed) : seed);
     this.playing = true;
+    this.soundcheckUntil = welcome ? this.context.currentTime + 90 : 0;
+    this.nextSoundcheck = welcome ? this.context.currentTime + 2 : Infinity;
     this.nextBed = this.context.currentTime + 0.03;
     this.nextReaction = this.context.currentTime + 12 + this.random() * 15;
     this.reactionUntil = 0;
@@ -254,6 +267,17 @@ export class AudiencePlayer {
     this.controls = readAudienceControls(value);
     if (!this.controls.enabled || !this.controls.reactions) this.pendingReaction = undefined;
     if (!this.disposed) this.applyGain(this.context.currentTime);
+  }
+  /** Local pre-show Foley, never a Jev decision or part of the archived score. */
+  endSoundcheck(at = this.context.currentTime) {
+    this.soundcheckUntil = 0;
+    this.nextSoundcheck = Infinity;
+    for (const voice of this.voices) {
+      if (voice.kind !== 'soundcheck' || voice.end <= at) continue;
+      voice.envelope.gain.cancelAndHoldAtTime(at);
+      voice.envelope.gain.linearRampToValueAtTime(0, at + 0.12);
+      voice.source.stop(at + 0.13);
+    }
   }
   /** A local sound-desk cue; it never changes Patch's shared mood or starts a model call. */
   triggerReaction(mood: 'applause' | 'cheering') {
@@ -306,6 +330,14 @@ export class AudiencePlayer {
       this.nextReaction = Math.max(this.nextReaction, now + 3);
       return;
     }
+    if (now < this.soundcheckUntil && now >= this.nextSoundcheck) {
+      const clip = this.choose('soundcheck', 'listening', this.lastSoundcheck);
+      if (clip) {
+        this.lastSoundcheck = clip.id;
+        this.play(clip, now + 0.03, 0.08, 1.3);
+        this.nextSoundcheck = now + clip.buffer.duration + 2 + this.random() * 3;
+      } else this.nextSoundcheck = now + 0.5;
+    }
     if (this.nextBed <= now + 0.3) {
       const at = Math.max(now + 0.02, this.nextBed);
       const clip = this.choose('bed', this.direction.mood, this.lastBed);
@@ -356,7 +388,11 @@ export class AudiencePlayer {
       this.tick(now);
     }
   }
-  private choose(kind: 'bed' | 'reaction', mood: AudienceMood, previous: string): Clip | undefined {
+  private choose(
+    kind: AudienceSample['kind'],
+    mood: AudienceMood,
+    previous: string,
+  ): Clip | undefined {
     const approved = this.bank?.samples.filter((s) => s.approved && s.kind === kind) ?? [];
     const matching = approved.filter((s) => s.mood === mood);
     const pool = matching.length ? matching : approved;
@@ -399,7 +435,7 @@ export class AudiencePlayer {
     envelope.gain.setValueCurveAtTime(down, end - fade, fade);
     source.connect(envelope);
     envelope.connect(this.input);
-    const voice = { source, envelope, end };
+    const voice = { source, envelope, end, kind: clip.kind };
     this.voices.add(voice);
     source.onended = () => {
       source.disconnect();
@@ -429,6 +465,7 @@ export class AudiencePlayer {
 
   stop() {
     if (this.disposed) return;
+    this.endSoundcheck();
     this.playing = false;
     this.pending = [];
     this.pendingReaction = undefined;
