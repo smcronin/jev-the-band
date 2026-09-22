@@ -1,6 +1,7 @@
 import { EventEmitter } from 'node:events';
 import { createHash, randomUUID } from 'node:crypto';
 import {
+  defaultDecision,
   defaultLighting,
   hash,
   lightRecipes,
@@ -8,6 +9,7 @@ import {
   type Decision,
   type Frame,
   type Musician,
+  type Note,
   type Part,
   type Snapshot,
   type Trace,
@@ -18,6 +20,9 @@ import { baseMode } from '../shared/performance.js';
 import { bootstrapRequest, callJev, requestFor, toLighting } from './jev.js';
 import { composePhrase, maxAttacks } from './composer.js';
 import { directJam } from './director.js';
+import { composeHead } from './head.js';
+import type { SonicConcept } from '../shared/concept.js';
+import { headBars, inferPulse, readHead } from '../shared/head.js';
 import { defaultEngineerMix, type ChannelLevels } from '../shared/engineer.js';
 import { engineerRequest, readEngineer } from './engineer.js';
 import { continuingSolo, continuingPhrase } from './solo.js';
@@ -74,6 +79,7 @@ export class Room extends EventEmitter {
     this.votes.clear();
     this.lastKeyChange = index;
     const concept = this.state.director?.concept;
+    if (this.adoptHead(cue.head)) return;
     this.state.requests++;
     const t = await callJev(
       bootstrapRequest(cue.prompt, this.model, concept, this.options.recentOpeners),
@@ -106,6 +112,75 @@ export class Room extends EventEmitter {
   }
   private windDown?: { cueId: string; startFrame: number };
   private finishing = false;
+  /** Six two-bar chunks per player while the band plays the written head; cleared afterwards. */
+  private head?: Record<Musician, Note[][]>;
+  private requestHead(prompt: string, concept: SonicConcept | undefined) {
+    const key = this.options.directorApiKey ?? (this.provider === 'typesafe' ? '' : this.apiKey);
+    return composeHead(prompt, concept, this.options.directorModel!, key, this.abort.signal);
+  }
+  /** Adopt a delivered head for the song that is starting. Returns false when there is none. */
+  private adoptHead(report: import('../shared/head.js').HeadReport | undefined): boolean {
+    this.head = undefined;
+    this.state.head = undefined;
+    if (report?.status !== 'ready' || !report.head) return false;
+    this.head = readHead(report.head).parts;
+    this.state.head = report;
+    const concept = this.state.director?.concept;
+    // The head declares its own key and tempo; the opener is whoever it brings in first.
+    this.state.baseBpm = report.head.bpm;
+    this.root = report.head.root;
+    this.scale = report.head.mode;
+    this.state.opener =
+      musicians.find((r) => this.head![r][0].length) ?? concept?.openingInstrument ?? 'bass';
+    this.modeName = this.scale;
+    this.state.initialRoot = this.root;
+    this.state.initialMode = this.scale;
+    return true;
+  }
+  /** One frame of the head as performed parts. Kit inherits the written groove as its theme. */
+  private headParts(chunk: number, index: number, prior: Frame | null): Part[] {
+    const chapter = this.state.director?.concept?.chapters[0];
+    return musicians.map((role) => {
+      const notes = structuredClone(this.head![role][chunk]);
+      const previous = prior?.parts.find((p) => p.role === role);
+      const decision = { ...defaultDecision(), action: 'develop' as const };
+      if (role === 'keys' && this.state.head?.head) {
+        decision.left = this.state.head.head.keys.left;
+        decision.right = this.state.head.head.keys.right;
+      }
+      const hasPlayed = notes.length > 0 || !!previous?.performance?.hasPlayed;
+      return {
+        role,
+        notes,
+        decision,
+        solo: false,
+        repeated: 0,
+        source: 'luna' as const,
+        updatedAtFrame: index,
+        continued: false,
+        phraseFormat: 'events-v1' as const,
+        tonalIntent: { root: this.root, mode: this.modeName },
+        performance: {
+          style: chapter?.style ?? 'soul_gospel',
+          arc: chapter?.arc ?? 'settle',
+          texture:
+            role === 'keys' ? 'split_comp_lead' : role === 'guitar' ? 'single_line' : 'groove',
+          palette: 'diatonic' as const,
+          chord: 'minor7' as const,
+          tensionPhrases: 0,
+          motifAge: 0,
+          hasPlayed,
+          silentTurns: notes.length ? 0 : (previous?.performance?.silentTurns ?? 0) + 1,
+          volume: 'warm' as const,
+          register: 'middle',
+          headBars: `${chunk * 2 + 1}–${chunk * 2 + 2}`,
+          ...(role === 'drums' && notes.length
+            ? { drumPulse: inferPulse(notes), drumSwing: 0, grooveAge: chunk, feel: 'backbeat' }
+            : {}),
+        },
+      };
+    });
+  }
   /**
    * End the jam the way a band does: the same wind-down a queued song uses, then stop once
    * everyone is silent. Asking again, or asking when there is no live music to land, stops at once.
@@ -184,9 +259,28 @@ export class Room extends EventEmitter {
         this.options.directorApiKey ?? (this.provider === 'typesafe' ? '' : this.apiKey),
         this.options.recentOpeners,
         this.abort.signal,
-      ).then((report) => {
+      ).then(async (report) => {
         cue.director = report;
         if (this.state.themeId === cue.id) this.state.director = report;
+        if (this.abort.signal.aborted) return;
+        this.publish();
+        // The head is written while the previous song still plays, so it costs no waiting.
+        cue.head = {
+          status: 'planning',
+          model: this.options.directorModel!,
+          requestedAt: Date.now(),
+        };
+        const head = await this.requestHead(prompt, report.concept);
+        // A head that arrives after its song began was never played; say so rather than show it.
+        cue.head =
+          cue.appliedAt !== undefined && head.status === 'ready'
+            ? {
+                ...head,
+                head: undefined,
+                status: 'failed',
+                error: 'Head arrived after the song had begun; Jev opened it.',
+              }
+            : head;
         if (!this.abort.signal.aborted) this.publish();
       });
     return cue;
@@ -211,6 +305,8 @@ export class Room extends EventEmitter {
       directorModel?: string;
       directorApiKey?: string;
       recentOpeners?: Musician[];
+      /** The arranger writes a twelve-bar head before each song (needs the director). Default on. */
+      headEnabled?: boolean;
       fallback?: { provider: JevProvider; apiKey: string; model: string };
     } = {},
   ) {
@@ -253,9 +349,19 @@ export class Room extends EventEmitter {
     }
     this.emit('trace', t);
   }
-  async start(): Promise<void> {
+  async start(restarting = false): Promise<void> {
     try {
-      if (this.state.mode === 'live') {
+      if (this.state.mode === 'live' && !restarting) {
+        const headPending =
+          this.options.directorModel && this.options.headEnabled !== false
+            ? this.requestHead(this.state.prompt, undefined)
+            : undefined;
+        if (headPending)
+          this.state.head = {
+            status: 'planning',
+            model: this.options.directorModel!,
+            requestedAt: Date.now(),
+          };
         if (this.options.directorModel) {
           this.state.director = { status: 'planning', model: this.options.directorModel };
           this.publish();
@@ -269,33 +375,47 @@ export class Room extends EventEmitter {
           this.publish();
         }
         if (this.abort.signal.aborted) return;
-        this.state.requests++;
-        const t = await callJev(
-          bootstrapRequest(
-            this.state.prompt,
-            this.model,
-            this.state.director?.concept,
-            this.options.recentOpeners,
-          ),
-          'host',
-          -1,
-          this.apiKey,
-          this.abort.signal,
-          this.provider,
-        );
-        this.trace(t);
-        if (t.source !== 'jev' && this.failover(t.error ?? 'Opening request failed', -1)) {
+        if (this.options.directorModel && this.options.headEnabled !== false) {
+          // Written concurrently with the concept, from the prompt alone, so the wait is one call.
+          const report = await headPending!;
+          if (this.abort.signal.aborted) return;
+          this.adoptHead(report);
+          if (!this.head) this.state.head = report;
           this.publish();
-          return this.start();
         }
-        if (t.source !== 'jev') throw new Error(t.error ?? 'Could not start Jev');
-        this.state.opener = t.answers.opener.choice as Musician;
-        this.state.baseBpm = Number(t.answers.bpm.choice);
-        this.root = Number(t.answers.root.choice);
-        this.scale = t.answers.mode.choice as Frame['mode'];
-        this.state.initialRoot = this.root;
-        this.state.initialMode = this.scale;
-        this.modeName = this.scale;
+      }
+      if (this.state.mode === 'live') {
+        if (this.abort.signal.aborted) return;
+        if (!this.head) {
+          this.state.requests++;
+          const t = await callJev(
+            bootstrapRequest(
+              this.state.prompt,
+              this.model,
+              this.state.director?.concept,
+              this.options.recentOpeners,
+            ),
+            'host',
+            -1,
+            this.apiKey,
+            this.abort.signal,
+            this.provider,
+          );
+          this.trace(t);
+          if (t.source !== 'jev' && this.failover(t.error ?? 'Opening request failed', -1)) {
+            this.publish();
+            // Retry only the opening decision: the concept and head are already in hand.
+            return this.start(true);
+          }
+          if (t.source !== 'jev') throw new Error(t.error ?? 'Could not start Jev');
+          this.state.opener = t.answers.opener.choice as Musician;
+          this.state.baseBpm = Number(t.answers.bpm.choice);
+          this.root = Number(t.answers.root.choice);
+          this.scale = t.answers.mode.choice as Frame['mode'];
+          this.state.initialRoot = this.root;
+          this.state.initialMode = this.scale;
+          this.modeName = this.scale;
+        }
       }
       if (this.abort.signal.aborted) return;
       this.state.startedAt = Date.now() + (this.state.mode === 'live' ? 7000 : 2500);
@@ -310,6 +430,7 @@ export class Room extends EventEmitter {
           atFrame: 0,
           appliedAt: this.state.startedAt,
           director: this.state.director,
+          head: this.state.head,
         },
       ];
       this.hardStop = setTimeout(() => this.stop(), this.state.endsAt - Date.now());
@@ -352,13 +473,17 @@ export class Room extends EventEmitter {
     const rel = index - this.themeFrame0;
     const winding = this.windDown ? index - this.windDown.startFrame : undefined;
     this.state.windDown = this.windDown ? { ...this.windDown, framesIn: winding! } : undefined;
+    // While the written head plays, nobody composes: the band reads. Jev takes over at bar 13,
+    // and every player's last head chunk is the memory it develops from.
+    const headChunk = this.head && winding === undefined && rel < headBars / 2 ? rel : undefined;
+    if (this.head && headChunk === undefined) this.head = undefined;
     const openingOrder = [this.state.opener, ...musicians.filter((r) => r !== this.state.opener)];
     // Independent commitments, a fair oldest-due queue, and at most ONE new musical idea.
     const eligible = musicians
       .filter((r) => (this.due.get(r) ?? 0) <= index)
       .sort((a, b) => (this.due.get(a) ?? 0) - (this.due.get(b) ?? 0));
     let selected =
-      winding !== undefined
+      winding !== undefined || headChunk !== undefined
         ? undefined
         : rel < 4
           ? openingOrder[rel]
@@ -387,18 +512,20 @@ export class Room extends EventEmitter {
     // Winding down is the one moment everyone may change at once: each player still sounding
     // decides how to finish, and a player who has stopped stays stopped.
     const selectedRoles: Musician[] =
-      winding !== undefined
-        ? musicians.filter((r) => prior?.parts.find((p) => p.role === r)?.notes.length)
-        : [
-            ...new Set([
-              ...(selected ? [selected] : []),
-              ...(this.state.mode === 'live'
-                ? (prior?.parts
-                    .filter((p) => continuingPhrase(p) || continuingSolo(p))
-                    .map((p) => p.role) ?? [])
-                : []),
-            ]),
-          ];
+      headChunk !== undefined
+        ? []
+        : winding !== undefined
+          ? musicians.filter((r) => prior?.parts.find((p) => p.role === r)?.notes.length)
+          : [
+              ...new Set([
+                ...(selected ? [selected] : []),
+                ...(this.state.mode === 'live'
+                  ? (prior?.parts
+                      .filter((p) => continuingPhrase(p) || continuingSolo(p))
+                      .map((p) => p.role) ?? [])
+                  : []),
+              ]),
+            ];
     const measured =
       this.measurement && Date.now() - this.measurement.at < 10000 ? this.measurement : undefined;
     const mixDue = !!measured && index % 2 === 0 && this.state.mode === 'live';
@@ -433,10 +560,7 @@ export class Room extends EventEmitter {
             part.performance.phraseChunks = 0;
           }
         }
-    const decisions = new Map<
-      Musician,
-      { d: Decision; source: 'jev' | 'rehearsal' | 'fallback' }
-    >();
+    const decisions = new Map<Musician, { d: Decision; source: Part['source'] }>();
     let lighting = lastFrame?.lighting ?? defaultLighting;
     const composed = new Map<Musician, Part>();
     const completedAt = new Map<Musician, number>();
@@ -667,65 +791,70 @@ export class Room extends EventEmitter {
       if (!decisions.has(old.role))
         decisions.set(old.role, { d: { ...old.decision, action: 'hold' }, source: old.source });
     }
-    const parts = [...decisions].map(([role, { d, source }]) => {
-      const previous = prior?.parts.find((p) => p.role === role);
-      if (this.state.mode === 'live') {
-        if (selectedRoles.includes(role) && source === 'jev')
-          return {
-            ...composed.get(role)!,
-            updatedAtFrame: index,
-            continued: false,
-          };
-        if (previous)
-          return {
-            ...previous,
-            source: selectedRoles.includes(role) ? ('fallback' as const) : previous.source,
-            solo: selectedRoles.includes(role) ? false : previous.solo,
-            continued: true,
-            repeated: previous.repeated + 1,
-            // Preserve played notes exactly; a new shared tonic is context for future compositions.
-            // A drum fill, drop or build is a moment: its repeat is the groove coming back.
-            notes:
-              selectedRoles.includes(role) && previous.solo
-                ? []
-                : structuredClone(previous.upNext?.[0] ?? previous.notes),
-            upNext: (previous.upNext?.length ?? 0) > 1 ? previous.upNext!.slice(1) : undefined,
-          };
-        return {
-          role,
-          decision: d,
-          notes: [],
-          solo: false,
-          repeated: 0,
-          source: 'fallback' as const,
-          continued: false,
-        };
-      }
-      if (previous && !selectedRoles.includes(role) && !ending) {
-        const shift = root - (prior?.root ?? root);
-        return {
-          ...previous,
-          continued: true,
-          repeated: previous.repeated + 1,
-          notes: previous.notes.map((n) => ({
-            ...n,
-            midi: role === 'drums' ? n.midi : n.midi + shift,
-          })),
-        };
-      }
-      const part = compile(
-        role,
-        ending ? { ...d, action: 'resolve', dynamic: 'soft', rhythm: 'sustain' } : d,
-        root,
-        this.scale,
-        this.state.seed + index,
-        prior?.parts.find((p) => p.role === role),
-      );
-      part.source = source;
-      part.updatedAtFrame = index;
-      part.continued = false;
-      return part;
-    });
+    if (headChunk !== undefined) for (const role of musicians) this.due.set(role, index + 1);
+    const parts =
+      headChunk !== undefined
+        ? this.headParts(headChunk, index, prior)
+        : [...decisions].map(([role, { d, source }]) => {
+            const previous = prior?.parts.find((p) => p.role === role);
+            if (this.state.mode === 'live') {
+              if (selectedRoles.includes(role) && source === 'jev')
+                return {
+                  ...composed.get(role)!,
+                  updatedAtFrame: index,
+                  continued: false,
+                };
+              if (previous)
+                return {
+                  ...previous,
+                  source: selectedRoles.includes(role) ? ('fallback' as const) : previous.source,
+                  solo: selectedRoles.includes(role) ? false : previous.solo,
+                  continued: true,
+                  repeated: previous.repeated + 1,
+                  // Preserve played notes exactly; a new shared tonic is context for future compositions.
+                  // A drum fill, drop or build is a moment: its repeat is the groove coming back.
+                  notes:
+                    selectedRoles.includes(role) && previous.solo
+                      ? []
+                      : structuredClone(previous.upNext?.[0] ?? previous.notes),
+                  upNext:
+                    (previous.upNext?.length ?? 0) > 1 ? previous.upNext!.slice(1) : undefined,
+                };
+              return {
+                role,
+                decision: d,
+                notes: [],
+                solo: false,
+                repeated: 0,
+                source: 'fallback' as const,
+                continued: false,
+              };
+            }
+            if (previous && !selectedRoles.includes(role) && !ending) {
+              const shift = root - (prior?.root ?? root);
+              return {
+                ...previous,
+                continued: true,
+                repeated: previous.repeated + 1,
+                notes: previous.notes.map((n) => ({
+                  ...n,
+                  midi: role === 'drums' ? n.midi : n.midi + shift,
+                })),
+              };
+            }
+            const part = compile(
+              role,
+              ending ? { ...d, action: 'resolve', dynamic: 'soft', rhythm: 'sustain' } : d,
+              root,
+              this.scale,
+              this.state.seed + index,
+              prior?.parts.find((p) => p.role === role),
+            );
+            part.source = source;
+            part.updatedAtFrame = index;
+            part.continued = false;
+            return part;
+          });
     // The band had its chance to finish by choice. Anything still sounding is cut, and said so.
     if (winding !== undefined && winding >= windDownFrames)
       for (const part of parts)
@@ -754,15 +883,17 @@ export class Room extends EventEmitter {
         ? 'The landing'
         : winding !== undefined
           ? 'Bringing it home'
-          : rel < 4
-            ? 'Finding each other'
-            : parts.filter((p) => p.solo).length > 1
-              ? 'Trading sparks'
-              : parts.some((p) => p.decision.action === 'space')
-                ? 'Into the open'
-                : parts.some((p) => p.solo)
-                  ? 'Following a thread'
-                  : 'In the pocket',
+          : headChunk !== undefined
+            ? 'Reading the head'
+            : rel < 4
+              ? 'Finding each other'
+              : parts.filter((p) => p.solo).length > 1
+                ? 'Trading sparks'
+                : parts.some((p) => p.decision.action === 'space')
+                  ? 'Into the open'
+                  : parts.some((p) => p.solo)
+                    ? 'Following a thread'
+                    : 'In the pocket',
     };
     this.state.frame = frame;
     this.state.frames.push(frame);

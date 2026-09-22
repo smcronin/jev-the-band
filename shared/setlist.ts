@@ -8,6 +8,7 @@ export interface ThemeCue {
   atFrame: number;
   appliedAt?: number;
   director?: DirectorReport;
+  head?: import('./head.js').HeadReport;
 }
 
 // A queued song never cuts in. The band is asked to bring the current song to a natural close;

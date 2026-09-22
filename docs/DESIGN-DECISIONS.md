@@ -480,3 +480,15 @@ Fill, drop and build are moments: they sound once, the following repeat is the g
 ## 2026-09-21 — Empty required title
 
 **User requirement:** do not prefill the title with a reusable default. Start with an empty required title and show “Title the next jam.” as the field prompt, so the jam action remains unavailable until the listener enters a title.
+
+## 2026-09-22 — The head: Luna writes twelve bars, Jev jams on them
+
+**User request:** the first Luna call gives the four players an actual, unique twelve-bar composition from the prompt; Jev takes the jam from there. System Two writes the head, System One improvises.
+
+**Decision.** Alongside the sonic concept, and concurrently with it, the arranger (`openai/gpt-5.6-luna` over OpenRouter) writes a **head**: twelve bars in 4/4 for guitar, bass, keys (two hands, each with a patch) and drums, in a compact per-bar notation (`D3@0/1 F#3@1.5/0.5!f`, chords with `+`, `L:`/`R:` hand prefixes, drum letters), plus its own tempo, tonic and mode. The band reads it exactly for six two-bar frames, every part labelled `source: 'luna'` with the bar range shown on the player card and the chapter "Reading the head"; nobody composes, and there is no Jev opening decision because the head opens the song. From bar 13 the fair rotation resumes with one new Jev idea per boundary: each player's last head chunk is its own memory, the whole head is heard context, and Kit inherits the written groove as its theme (grid inferred from the part) so its first move is a move, not a rewrite. Unselected players keep playing their written bars until their turn, exactly as they would keep a Jev phrase.
+
+**Handling the written music.** The parser validates every event against the instrument limits already enforced for Jev (ranges, five fingers per hand, phrase bounds); unreadable or over-limit events are dropped and counted in the report, and a pitch written outside an instrument's range is folded by octaves into it. Triplet beats written as 0.333/0.667 snap to the exact grid. A head nobody can play is treated as failed. A failed, late or disabled head (`headEnabled: false`) leaves the song opening exactly as before, with Jev's own opening decision. A queued song's head is written while the previous song still plays, so the fresh start reads it without waiting.
+
+**Provenance.** This is the first time notes that are not Jev decisions sound in a live jam. They are never labelled Jev: `source: 'luna'`, the head report (request, model, latency, cost, dropped counts) is published with the concept, and AGENTS.md now says so. Jev's later phrases are still entirely Jev's.
+
+**Cost and time.** Head and concept run concurrently, so the first sound arrives after the slower of the two (34 s in the live run) instead of their sum. A head costs about $0.003–0.005.
