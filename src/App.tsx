@@ -887,6 +887,7 @@ export default function App() {
         </div>
         <ConceptCard
           report={activeCue?.director ?? room?.director}
+          head={activeCue?.head ?? room?.head}
           elapsed={
             (currentTime - (activeFrame?.themeStartedAt ?? room?.startedAt ?? currentTime)) / 1000
           }
@@ -1073,9 +1074,11 @@ export default function App() {
                                 ]
                                   .filter(Boolean)
                                   .join(' · ')
-                              : part?.continued || part?.decision.action === 'hold'
-                                ? 'Holding the thread'
-                                : part?.decision.action
+                              : part?.source === 'luna'
+                                ? `Reading the head · bars ${part.performance?.headBars}`
+                                : part?.continued || part?.decision.action === 'hold'
+                                  ? 'Holding the thread'
+                                  : part?.decision.action
                             : 'Waiting for a spark'}
                       </span>
                       <div className={`meter ${lit && !reduced ? 'moving' : ''}`}>

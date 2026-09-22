@@ -603,3 +603,15 @@ ensure backwards compatibility of previous songs
 > Make there be no default string in the title. Otherwise, people are just going to hit "Let's Jam" without entering anything, and we'll have the same somewhere between the last train and the sunrise multiple times. Just put "Title the next jam."
 
 Follow-up: “merge to master push to prod.” This repository's canonical production branch is `main`; there is no `master` branch.
+
+## 2026-09-22 — Luna writes the head
+
+```text
+can we take the luna pass to the next level:
+
+e.g.; the first luna call (or calls?) gives the 4 players and actual 12 - bar unique composition to start from based on the prompt
+
+jev takes the jams from there?
+
+basically an extension of the system one / system two thinking. luna gives each of the jevs a specific place to start with an actual composition that makes some sense; and then the jam takes it from there!
+```

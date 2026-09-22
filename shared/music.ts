@@ -262,7 +262,8 @@ export interface Part {
   decision: Decision;
   solo: boolean;
   repeated: number;
-  source: 'jev' | 'rehearsal' | 'fallback';
+  /** luna: a bar of the written head, composed by the arranger before the jam; never a Jev decision. */
+  source: 'jev' | 'rehearsal' | 'fallback' | 'luna';
   updatedAtFrame?: number;
   /**
    * Drums: what this part plays on its next repeats, first to last; the last entry is the groove
@@ -324,6 +325,8 @@ export interface Snapshot {
   lastSoloAt?: number;
   lastSoloRole?: Musician;
   director?: DirectorReport;
+  /** The written twelve-bar head of the current song, when the arranger delivered one. */
+  head?: import('./head.js').HeadReport;
   /** Long-form solo suggestions from the separately labeled arranger model; Jev still chooses every note. */
   soloSketches?: Partial<Record<Musician, import('./sketch.js').SoloSketchReport>>;
   id: string;

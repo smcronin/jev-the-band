@@ -23,6 +23,7 @@
     "format": "prettier --write src server shared scripts tests *.json *.ts",
     "audit:solos": "tsx scripts/audit-solos.ts",
     "audit:drums": "tsx scripts/audit-drums.ts",
+    "audit:head": "tsx scripts/audit-head.ts",
     "audit:transition": "tsx scripts/audit-transition.ts",
     "generate:audience": "tsx scripts/generate-audience.ts",
     "promote:audience": "tsx scripts/promote-audience.ts",

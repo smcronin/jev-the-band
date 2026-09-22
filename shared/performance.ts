@@ -80,6 +80,8 @@ export type Performance = {
   soloEnergy?: string;
   volume?: keyof typeof volumes;
   feel?: string;
+  /** Set while the part is a bar range of the written head, e.g. "3–4". */
+  headBars?: string;
   // Drum groove memory. Absent on parts recorded before the groove harness.
   drumPulse?: number;
   drumSwing?: number;

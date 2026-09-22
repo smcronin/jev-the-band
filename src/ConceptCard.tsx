@@ -1,8 +1,24 @@
 import { chapterAt, type DirectorReport } from '../shared/concept';
+import type { HeadReport } from '../shared/head';
 import { personas } from '../shared/music';
 
-export function ConceptCard({ report, elapsed }: { report?: DirectorReport; elapsed: number }) {
+export function ConceptCard({
+  report,
+  head,
+  elapsed,
+}: {
+  report?: DirectorReport;
+  head?: HeadReport;
+  elapsed: number;
+}) {
   if (!report) return null;
+  if (head?.status === 'planning' && report.status !== 'planning')
+    return (
+      <div className="concept-card" role="status">
+        Luna is writing the head…{' '}
+        <small>A twelve-bar opening the band reads; then Jev jams on it.</small>
+      </div>
+    );
   if (report.status === 'planning')
     return (
       <div className="concept-card" role="status">
@@ -34,9 +50,16 @@ export function ConceptCard({ report, elapsed }: { report?: DirectorReport; elap
         ))}
       </div>
       {current && <p className="chapter-direction">{current.harmonicDirection}</p>}
+      {head?.head && (
+        <p className="chapter-direction">
+          Head: <b>{head.head.title}</b> · {head.head.idea} · written by {head.model}; Jev takes
+          over at bar 13
+        </p>
+      )}
+      {head?.status === 'failed' && <p className="chapter-direction">{head.error}</p>}
       <details className="director-proof">
         <summary>Inspect the director brief and request</summary>
-        <pre>{JSON.stringify(report, null, 2)}</pre>
+        <pre>{JSON.stringify({ director: report, head }, null, 2)}</pre>
       </details>
     </details>
   );
