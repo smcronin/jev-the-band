@@ -17,7 +17,6 @@ export async function directJam(
   const request = {
     model,
     temperature: 0.9,
-    max_tokens: 2400,
     messages: [
       {
         role: 'system',

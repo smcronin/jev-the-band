@@ -19,7 +19,6 @@ export async function sketchSolo(
   const request = {
     model,
     temperature: 1,
-    max_tokens: 1800,
     messages: [
       {
         role: 'system',

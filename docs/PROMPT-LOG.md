@@ -644,3 +644,8 @@ why do you think 9/10 jams are C Dorian? how would you over come this sort most 
 ```text
 yes do all three, merge and deploy
 ```
+
+## 2026-09-22 — Remove System Two output caps
+
+> ah, can we get rid of that? hard cap just seems to invite failure?
+

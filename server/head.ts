@@ -26,7 +26,6 @@ export async function composeHead(
   const request = {
     model,
     temperature: 0.8,
-    max_tokens: 6000,
     messages: [
       {
         role: 'system',

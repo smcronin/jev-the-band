@@ -519,3 +519,10 @@ A replacement local credential resolved the generation failure. Four distinct th
 **Decision, in three layers.** (1) *Memory across jams:* the archive reports the keys of the last eight live songs (from each song's recorded key, or the jam's opening key for older recordings); the room adds its own earlier songs. (2) *Rest, as within a jam:* the last few tonics (up to six) and modes (up to three) rest. They are removed from Jev's opening menu when no head arrives, and the arranger and director are told what is resting. (3) *The room chooses, Luna fits:* live auditions showed the arranger obeys a hint only sometimes (told C, D and E were resting it still wrote C major and D mixolydian twice out of three) and, once constrained, locks onto the first allowed option (lydian three times running). So the room now picks the tonic off-model, seeded per song, weighted toward guitar- and bass-friendly keys with resting tonics excluded, and offers three sampled modes; Luna writes in that tonic and picks the mode that fits the prompt. If Luna still writes in another key the head is transposed onto the chosen tonic by the shorter way round (drums untouched) and the report says so. The head prompt's examples now span keys and name tonics rather than numbering them; ten modes are offered instead of four. Bars the arranger writes as one `|`-separated string spread into the following empty bars instead of being dropped.
 
 **Provenance.** The chosen tonic, the offered modes and any transposition are published in the head report and on the concept card ("tonic chosen by the room for variety"). Luna's key choice is therefore no longer its own; its mode choice and every note still are.
+
+## 2026-09-22 — Provider-managed System Two output budgets
+
+**User requirement:** remove the explicit output token cap after GPT-6 Luna's sonic concept was truncated.
+
+**Implementation:** omit max_tokens for the sonic director, head arranger, and solo sketch calls. The provider chooses its default output allowance; model/provider limits still apply. Existing request timeouts and schema validation remain. Production uses openai/gpt-6-luna via DIRECTOR_MODEL.
+
